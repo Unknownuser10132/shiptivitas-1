@@ -15,6 +15,7 @@ export default class Swimlane extends React.Component {
         />
       );
     })
+
     return (
       <div className="Swimlane-column">
         <div className="Swimlane-title">{this.props.name}</div>
@@ -23,5 +24,4 @@ export default class Swimlane extends React.Component {
         </div>
       </div>);
   }
-
 }
