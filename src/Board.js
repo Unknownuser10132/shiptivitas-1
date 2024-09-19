@@ -53,32 +53,48 @@ export default class Board extends React.Component {
   }
 
   componentDidMount() {
-    const { backlog, inProgress, complete } = this.swimlanes;
-    let containers = [backlog.current, inProgress.current, complete.current];
-
-    const drag = Dragula({ containers });
-    drag.on("drop", (el, target) => {
-      console.log("Target:", target);
-      console.log("Previous sibling:", target.previousSibling);
-
-      let swimlaneName = target.previousSibling.textContent;
-      let updatedCard;
-      
-      if (swimlaneName === "Backlog") {
-        updatedCard = this.updateCardAttributes(el, "grey", "backlog");
-      } else if (swimlaneName === "In Progress") {
-        updatedCard = this.updateCardAttributes(el, "blue", "in-progress");
-      } else if (swimlaneName === "Complete") {
-        updatedCard = this.updateCardAttributes(el, "green", "complete");
-      }
-      
-      return updatedCard;
+    this.dragula = Dragula([
+      this.swimlanes.backlog.current,
+      this.swimlanes.inProgress.current,
+      this.swimlanes.complete.current,
+    ]);
+    this.dragula.on("drop", (el, target, source, sibling) => {
+      this.dragula.cancel(true);
+      this.updateClient(el, target, source, sibling)
     });
   }
 
-  updateCardAttributes(el, colour, status) {
-    el.className = `Card Card-${colour}`;
-    el.dataset.status = status;
+  componentWillUnmount() {
+    this.dragula.remove();
+  }
+
+  // Change status of client when Card moved
+  updateClient(el, target, _, sibling) {
+    // Get target swimlane
+    let targetSwimLane = "backlog";
+    if (target === this.swimlanes.inProgress.current) { targetSwimLane = "in-progress"; }
+    else if (target === this.swimlanes.complete.current) { targetSwimLane = "complete"; }
+
+    // Get moved client's details from state
+    const allClients = [...this.state.clients.backlog, ...this.state.clients.inProgress, ...this.state.clients.complete];
+    const movedClient = allClients.find(client => client.id === el.dataset.id);
+    const updatedClient = { ...movedClient, status: targetSwimLane };
+
+    // Remove moved client from old list
+    const updatedClients = allClients.filter(client => client.id !== updatedClient.id);
+
+    // Insert moved client into new list in correct order
+    const idx = sibling ? updatedClients.findIndex(client => client.id === sibling.dataset.id) : -1;
+    updatedClients.splice(idx === -1 ? updatedClients.length : idx, 0, updatedClient);
+
+    // Update React state to reflect changes
+    this.setState({
+      clients: {
+        backlog: updatedClients.filter(client => !client.status || client.status === 'backlog'),
+        inProgress: updatedClients.filter(client => client.status && client.status === 'in-progress'),
+        complete: updatedClients.filter(client => client.status && client.status === 'complete'),
+      }
+    });
   }
 
   renderSwimlane(name, clients, ref) {
